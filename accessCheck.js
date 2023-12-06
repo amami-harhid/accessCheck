@@ -82,8 +82,8 @@ const puppeteerPageClose = async () =>{
 }
 
 
-async function writeResultFile(obj){
-    const result_txt_name = DIRNAME+'\\result.txt';
+async function writeResultFile(obj, resultFileName){
+    const result_txt_name = DIRNAME+'\\' + resultFileName;
     let text = `Status=${obj.status},Url=${obj.url}, No=${obj.no}, Row=${obj.rowNo}`+"\n"
     fs.appendFileSync(
         result_txt_name,
@@ -95,26 +95,37 @@ async function writeResultFile(obj){
         }
     );    
 }
-const Access = async () => {
+let _count = 0;
+let _execCount = 0;
+const Access = async (startNo, range, resultFileName="result.txt") => {
+    console.log(`startNo=${startNo}, range=${range}, resultFileName=${resultFileName}`)
+    const _urlArr = [];
+    urlArr.forEach((obj,index)=>{
+        if((index+1)>=startNo && (index+1) < (startNo+range)) {
+            _urlArr.push(obj);
+        }
+    });
     _async.forEachSeries(
-        urlArr,
+        _urlArr,
         (async function(obj, callback){
             try{
-                const _browser = await launch( _browserOptions );
-                const page = await _browser.newPage();
-//                await page.goto(obj.url,  {waitUntil: 'networkidle0'})
-                await page.goto(obj.url,  {waitUntil: 'load'})
-                .then(async function(response){
-                    if(response==null || response === 'undefined'){
-                        console.log(`エラー：${obj.rowNo}:${obj.no}:${obj.url}:${obj.releaseDate}`);             
-                        return; 
-                    }
-                    const status = response.status();
-                    obj.status = status;
-                    console.log(`status=${status}`, obj); 
-                    await writeResultFile(obj);           
-                })
-    
+                console.log(`_count=${_count}, _execCount=${_execCount}, no=${obj.no}`)
+                if(_count => startNo && range > _execCount) {
+                    const _browser = await launch( _browserOptions );
+                    const page = await _browser.newPage();
+                    await page.goto(obj.url,  {waitUntil: 'load'})
+                    .then(async function(response){
+                        if(response==null || response === 'undefined'){
+                            console.log(`エラー：${obj.rowNo}:${obj.no}:${obj.url}:${obj.releaseDate}`);             
+                            return; 
+                        }
+                        const status = response.status();
+                        obj.status = status;
+                        //console.log(`status=${status}`, obj); 
+                        await writeResultFile(obj, resultFileName);
+                        _execCount += 1;
+                    })
+                }
             }catch(e){
                 console.log(e)
                 console.log(`エラー：${obj.url}`);             
@@ -122,6 +133,7 @@ const Access = async () => {
             }finally{
                 //cb();
                 await puppeteerPageClose();
+                _count += 1;
                 callback();
             }
         }),
@@ -135,7 +147,9 @@ const Access = async () => {
     );
 };
 
-const exe = async () => {
-    await Access();
+const accessCheck = async (startNo, range, resultFileName) => {
+    await Access(startNo, range, resultFileName);
 }
-exe();
+
+module.exports = accessCheck;
+module.exports.default = accessCheck;
