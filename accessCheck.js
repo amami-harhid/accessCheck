@@ -42,8 +42,8 @@ for(let i=0; i<1000; i++){
     }
 }
 
-console.log(`count=${count}`)
-console.log(`array=${urlArr.length}`)
+//console.log(`count=${count}`)
+//console.log(`array=${urlArr.length}`)
 
 
 const headless = true;
@@ -82,9 +82,13 @@ const puppeteerPageClose = async () =>{
 }
 
 
-async function writeResultFile(obj, resultFileName){
+async function writeResultFile(obj, resultFileName, e){
     const result_txt_name = DIRNAME+'\\' + resultFileName;
-    let text = `Status=${obj.status},Url=${obj.url}, No=${obj.no}, Row=${obj.rowNo}`+"\n"
+
+    let text = `Status=${obj.status},Url=${obj.url}, No=${obj.no}, Row=${obj.rowNo}`+"\n";
+    if(e){
+        text += e +"\n";
+    }
     fs.appendFileSync(
         result_txt_name,
         text, //result_txt,
@@ -97,10 +101,17 @@ async function writeResultFile(obj, resultFileName){
 }
 let _count = 0;
 let _execCount = 0;
-const Access = async (startNo, range, resultFileName="result.txt") => {
+const Access = async (releaseDate, startNo, range, resultFileName="result.txt") => {
     console.log(`startNo=${startNo}, range=${range}, resultFileName=${resultFileName}`)
-    const _urlArr = [];
+    const startTime = Date.now();
+    const _urlArrTmp = [];
     urlArr.forEach((obj,index)=>{
+        if(obj.releaseDate == releaseDate) {
+            _urlArrTmp.push(obj);
+        }
+    });
+    const _urlArr = [];
+    _urlArrTmp.forEach((obj,index)=>{
         if((index+1)>=startNo && (index+1) < (startNo+range)) {
             _urlArr.push(obj);
         }
@@ -110,28 +121,30 @@ const Access = async (startNo, range, resultFileName="result.txt") => {
         (async function(obj, callback){
             try{
                 console.log(`_count=${_count}, _execCount=${_execCount}, no=${obj.no}`)
-                if(_count => startNo && range > _execCount) {
-                    const _browser = await launch( _browserOptions );
-                    const page = await _browser.newPage();
-                    await page.goto(obj.url,  {waitUntil: 'load'})
-                    .then(async function(response){
-                        if(response==null || response === 'undefined'){
-                            console.log(`エラー：${obj.rowNo}:${obj.no}:${obj.url}:${obj.releaseDate}`);             
-                            return; 
-                        }
-                        const status = response.status();
-                        obj.status = status;
-                        //console.log(`status=${status}`, obj); 
-                        await writeResultFile(obj, resultFileName);
-                        _execCount += 1;
-                    })
-                }
+                const _browser = await launch( _browserOptions );
+                const page = await _browser.newPage();
+                await page.goto(obj.url,  {waitUntil: 'load'})
+                .then(async function(response){
+                    if(response==null || response === 'undefined'){
+                        console.log(`エラー：${obj.rowNo}:${obj.no}:${obj.url}:${obj.releaseDate}`);             
+                        return; 
+                    }
+                    const status = response.status();
+                    obj.status = status;
+                    //console.log(`status=${status}`, obj); 
+                    await writeResultFile(obj, resultFileName);
+                    _execCount += 1;
+                })
             }catch(e){
-                console.log(e)
                 console.log(`エラー：${obj.url}`);             
+                console.log(e)
+                await writeResultFile(obj, resultFileName, e);
 
             }finally{
                 //cb();
+                if(_urlArr.indexOf(obj) == (_urlArr.length-1)) {
+                    console.log(`Time2=${Date.now()-startTime}`)
+                }
                 await puppeteerPageClose();
                 _count += 1;
                 callback();
@@ -147,8 +160,8 @@ const Access = async (startNo, range, resultFileName="result.txt") => {
     );
 };
 
-const accessCheck = async (startNo, range, resultFileName) => {
-    await Access(startNo, range, resultFileName);
+const accessCheck = async (releaseDate,startNo, range, resultFileName) => {
+    await Access(releaseDate, startNo, range, resultFileName);
 }
 
 module.exports = accessCheck;
