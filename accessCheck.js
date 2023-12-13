@@ -123,6 +123,7 @@ const Access = async (releaseDate, startNo, range, resultFileName="result.txt") 
                 console.log(`_count=${_count}, _execCount=${_execCount}, no=${obj.no}`)
                 const _browser = await launch( _browserOptions );
                 const page = await _browser.newPage();
+                await page.setDefaultNavigationTimeout(15*60*1000);// タイムアウト秒数( デフォルト=30秒)
                 await page.goto(obj.url,  {waitUntil: 'load'})
                 .then(async function(response){
                     if(response==null || response === 'undefined'){
